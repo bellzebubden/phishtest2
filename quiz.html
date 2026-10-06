@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Социальный пентест — тест по цифровой безопасности</title>
+<style>
+  :root{
+    --primary:#0f3d5c; --secondary:#1f7a8c; --secondary-dark:#155a68;
+    --ok:#1a7a1a; --err:#a51d1d; --muted:#5a6b74;
+    --bg:#f3f6f8; --card:#ffffff; --line:#dbe6ea; --text:#13232c;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:24px 16px 64px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:28px;box-shadow:0 1px 3px rgba(15,61,92,.06)}
+  h1{color:var(--primary);font-size:1.7rem;margin:0 0 .4em}
+  h2{color:var(--primary);font-size:1.3rem;margin:0 0 .5em}
+  p{margin:.4em 0}
+  .muted{color:var(--muted)}
+  .q-text{color:var(--primary);font-weight:700;font-size:1.15rem;margin:.2em 0 .1em}
+  label.opt{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin:8px 0;
+    border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#fff;
+    transition:border-color .12s,background .12s}
+  label.opt:hover{border-color:var(--secondary)}
+  label.opt.sel{border-color:var(--secondary);background:#eef6f8}
+  label.opt input{margin-top:3px;flex:0 0 auto;width:18px;height:18px;accent-color:var(--secondary)}
+  .opt .num{color:var(--secondary);font-weight:700;margin-right:2px}
+  button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:12px 22px}
+  .btn{background:var(--secondary);color:#fff;font-weight:600}
+  .btn:hover{background:var(--secondary-dark)}
+  .btn.ghost{background:#eef3f5;color:var(--primary)}
+  .btn.ghost:hover{background:#dfeaee}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .right{margin-left:auto}
+  input[type=text]{font:inherit;padding:11px 13px;border:1px solid var(--line);
+    border-radius:10px;width:100%;max-width:420px}
+  .bar{height:12px;background:#dbe9ee;border-radius:7px;overflow:hidden;margin:8px 0 18px}
+  .bar>span{display:block;height:100%;background:var(--secondary);transition:width .25s}
+  .progress-top{font-size:.92rem}
+  .pill{display:inline-block;background:#eef6f8;color:var(--secondary-dark);
+    border-radius:999px;padding:3px 12px;font-size:.85rem;font-weight:600}
+  .score-big{font-size:2.6rem;font-weight:800;color:var(--primary);line-height:1}
+  .level{font-size:1.25rem;font-weight:700;margin-top:6px}
+  .cat-row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:.95rem}
+  .cat-row .name{flex:0 0 42%;min-width:0;overflow-wrap:anywhere}
+  .cat-row .cbar{flex:1;height:10px;background:#e7eef1;border-radius:6px;overflow:hidden}
+  .cat-row .cbar>span{display:block;height:100%;background:var(--secondary)}
+  .cat-row .val{flex:0 0 auto;color:var(--muted);font-variant-numeric:tabular-nums}
+  .review-q{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+  .review-q .status{font-weight:700;margin-bottom:6px}
+  .o-line{display:flex;gap:8px;padding:4px 0;align-items:flex-start}
+  .o-correct{color:var(--ok);font-weight:600}
+  .o-wrong{color:var(--err)}
+  .expl{background:#f7fafb;border-left:3px solid var(--secondary);
+    padding:10px 14px;margin-top:10px;border-radius:0 8px 8px 0;color:#30444d;font-size:.95rem}
+  .hint{color:var(--muted);font-size:.88rem;margin-top:14px}
+  .hidden{display:none}
+  .tag{display:inline-block;background:var(--primary);color:#fff;font-size:.72rem;
+    letter-spacing:.04em;padding:3px 9px;border-radius:6px;text-transform:uppercase}
+  .sendnote{font-size:.9rem;margin-top:14px}
+  .sendok{color:var(--ok)} .senderr{color:var(--err)}
+  @media (max-width:520px){
+    .wrap{padding:14px 10px 48px}.card{padding:18px}
+    h1{font-size:1.4rem}.score-big{font-size:2.1rem}
+    .cat-row .name{flex-basis:100%}.cat-row{flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="app"></div>
+</div>
+
+<script>
+/* ============================================================
+   НАСТРОЙКИ — меняешь только этот блок
+   ============================================================ */
+const CONFIG = {
+  // Куда слать результаты. Вставь сюда URL своего Google Apps Script
+  // (см. инструкцию). Пусто = результаты не отправляются, а показываются
+  // на экране кодом, который сотрудник может переслать тебе вручную.
+  RESULTS_ENDPOINT: "",
+  QUESTIONS_PER_TEST: 14,   // сколько вопросов в одном прохождении
+  SHUFFLE: true                   // перемешивать вопросы и варианты
+};
+
+const QUESTIONS = [{"id": 1, "sort_order": 1, "text": "Ситуация: Вы работаете в бухгалтерии. Приходит электронное письмо от имени финансового директора с темой «Срочно! Оплата по иску ФНС». В письме — PDF-файл с «постановлением» и требование оплатить задолженность в течение 2 часов по реквизитам в приложении, чтобы избежать блокировки счета. Обратный адрес: fin.dir-company@gmail.com. Ваши действия?", "category": "Фишинг", "explanation": "Единственный способ верификации — звонок по номеру из корпоративной записной книжки. Игнорирование письма может привести к упущению важного документа. Ответ на письмо подтверждает мошеннику, что адрес активен. Сверка реквизитов без звонка директору недостаточна.", "multi": 0, "active": 1, "options": [{"id": 1, "question_id": 1, "sort_order": 0, "text": "Игнорирую письмо, так как адрес @gmail.com не является корпоративным, и удаляю его.", "score": 1}, {"id": 2, "question_id": 1, "sort_order": 1, "text": "Звоню финансовому директору по мобильному телефону из корпоративной записной книжки, чтобы уточнить, отправлял ли он это письмо.", "score": 3}, {"id": 3, "question_id": 1, "sort_order": 2, "text": "Отвечаю на письмо на этот же адрес (@gmail.com) с просьбой подтвердить личность и прислать скан заверенной доверенности.", "score": 0}, {"id": 4, "question_id": 1, "sort_order": 3, "text": "Смотрю в базе 1С/CRM, есть ли у компании такой контрагент (ФНС) и совпадают ли реквизиты. Реквизиты новые — оплачиваю только после сверки с директором.", "score": 2}]}, {"id": 2, "sort_order": 2, "text": "Ситуация: Вы получаете письмо от имени своего руководителя с вложением «Скан_приказа_о_премировании.zip» и текстом: «Посмотрите проект приказа, нужно срочно согласовать до 18:00, я на переговорах». Ваш руководитель часто присылает подобные документы. Ваши действия?", "category": "Фишинг", "explanation": "Проверка через альтернативный канал — единственный способ убедиться, что аккаунт не взломан. Архивы с паролями часто доставляют вредонос. Пересылка в ИБ — правильный шаг, но может занять время. Ответ на письмо подтверждает мошеннику активность адреса.", "multi": 0, "active": 1, "options": [{"id": 5, "question_id": 2, "sort_order": 0, "text": "Открою архив, введу пароль «приказ» или «123», если он запросит, так как руководитель мог поставить стандартный пароль для экономии времени.", "score": 0}, {"id": 6, "question_id": 2, "sort_order": 1, "text": "Напишу руководителю в мессенджер (не отвечая на письмо) и уточню, действительно ли он отправлял этот файл.", "score": 3}, {"id": 7, "question_id": 2, "sort_order": 2, "text": "Перешлю письмо в отдел ИБ и подожду ответа, не открывая вложение.", "score": 2}, {"id": 8, "question_id": 2, "sort_order": 3, "text": "Отвечу на письмо вопросом «это точно вы?», прежде чем открывать файл.", "score": 1}]}, {"id": 3, "sort_order": 3, "text": "Ситуация: На ваш телефон приходит SMS: «Мама, это мой новый номер. Сохрани, пожалуйста. Старый сломался. Напиши мне в Telegram, есть важный вопрос. +7-999-123-45-67». Ваш ребенок (или близкий родственник) учится/живет отдельно. Что вы сделаете?", "category": "Вишинг / доверие", "explanation": "Лучший вариант — проверка по альтернативным каналам (супруг, другие дети, рабочий телефон). Написание в новый номер без проверки — попадание в ловушку. Кодовые слова из соцсетей и утечек могут быть известны мошенникам.", "multi": 0, "active": 1, "options": [{"id": 9, "question_id": 3, "sort_order": 0, "text": "Сразу пишу в Telegram на новый номер, как просили.", "score": 0}, {"id": 10, "question_id": 3, "sort_order": 1, "text": "Звоню на старый (известный мне) номер ребёнка, чтобы проверить, что случилось.", "score": 3}, {"id": 11, "question_id": 3, "sort_order": 2, "text": "Спрашиваю в переписке «кодовое слово», которое мы придумали заранее в семье.", "score": 2}, {"id": 12, "question_id": 3, "sort_order": 3, "text": "Связываюсь с другими родственниками, чтобы узнать, всё ли в порядке, прежде чем писать на новый номер.", "score": 2}]}, {"id": 4, "sort_order": 4, "text": "Ситуация: На парковке офиса вы находите флешку с наклейкой «Зарплаты руководства — конфиденциально». Ваши действия?", "category": "Baiting", "explanation": "Заражённые флешки — классический приём Baiting. Подключать найденный носитель к рабочему или личному компьютеру нельзя ни в коем случае. Правильно — передать находку в ИБ/охрану, не подключая её.", "multi": 0, "active": 1, "options": [{"id": 13, "question_id": 4, "sort_order": 0, "text": "Подключу флешку к рабочему компьютеру, чтобы посмотреть, чья это и вернуть владельцу.", "score": 0}, {"id": 14, "question_id": 4, "sort_order": 1, "text": "Отнесу флешку в отдел информационной безопасности или охрану, не подключая её никуда.", "score": 3}, {"id": 15, "question_id": 4, "sort_order": 2, "text": "Подключу флешку дома на личном ноутбуке из любопытства.", "score": 0}, {"id": 16, "question_id": 4, "sort_order": 3, "text": "Выброшу флешку, не подключая её.", "score": 1}]}, {"id": 5, "sort_order": 5, "text": "Ситуация: Вам звонит человек, представившийся сотрудником службы поддержки банка, и говорит, что заметил подозрительную операцию по вашей карте. Просит назвать код из SMS «для отмены операции». Ваши действия?", "category": "Вишинг", "explanation": "Банк никогда не запрашивает коды из SMS по телефону. Правильно — положить трубку и перезвонить в банк по номеру с обратной стороны карты или из официального приложения.", "multi": 0, "active": 1, "options": [{"id": 17, "question_id": 5, "sort_order": 0, "text": "Называю код, ведь звонивший знает номер моей карты и последние операции.", "score": 0}, {"id": 18, "question_id": 5, "sort_order": 1, "text": "Кладу трубку и перезваниваю в банк по номеру с обратной стороны карты.", "score": 3}, {"id": 19, "question_id": 5, "sort_order": 2, "text": "Прошу перезвонить позже и за это время ничего не предпринимаю.", "score": 0}, {"id": 20, "question_id": 5, "sort_order": 3, "text": "Говорю, что перезвоню сам, и сбрасываю звонок, но не проверяю карту дальше.", "score": 1}]}, {"id": 6, "sort_order": 6, "text": "Ситуация: Коллега, которого вы видите впервые, подходит к двери серверной сразу за вами с коробкой в руках и говорит: «Придержите дверь, руки заняты, я новый инженер поддержки». Ваши действия?", "category": "Физическая безопасность", "explanation": "Это классический tailgating. Даже вежливый и убедительный человек должен пройти через обычную процедуру пропуска. Правильно — попросить предъявить пропуск или проводить к ресепшену/охране.", "multi": 0, "active": 1, "options": [{"id": 21, "question_id": 6, "sort_order": 0, "text": "Придержу дверь — выглядит правдоподобно, и это просто вежливость.", "score": 0}, {"id": 22, "question_id": 6, "sort_order": 1, "text": "Вежливо попрошу его приложить свой пропуск или провожу к ресепшену для оформления гостевого пропуска.", "score": 3}, {"id": 23, "question_id": 6, "sort_order": 2, "text": "Сделаю вид, что не заметил, и пройду быстрее, чтобы дверь закрылась перед ним.", "score": 1}, {"id": 24, "question_id": 6, "sort_order": 3, "text": "Спрошу, к кому он идёт, и сам его провожу, не открывая дверь картой.", "score": 2}]}, {"id": 7, "sort_order": 7, "text": "Ситуация: Вы получаете письмо якобы от IT-отдела: «Ваш почтовый ящик переполнен, авторизуйтесь для очистки» со ссылкой на страницу, похожую на корпоративный портал. Ваши действия?", "category": "Фишинг / аккаунты", "explanation": "Нужно проверять точный домен ссылки, а не полагаться на визуальное сходство. Правильно — не переходить по ссылке, а зайти на портал вручную через закладку или обратиться в IT напрямую.", "multi": 0, "active": 1, "options": [{"id": 25, "question_id": 7, "sort_order": 0, "text": "Перехожу по ссылке и ввожу логин/пароль, раз письмо похоже на настоящее.", "score": 0}, {"id": 26, "question_id": 7, "sort_order": 1, "text": "Открываю портал вручную по сохранённой закладке (не по ссылке из письма) и проверяю уведомления там.", "score": 3}, {"id": 27, "question_id": 7, "sort_order": 2, "text": "Пересылаю письмо в IT-отдел с вопросом, легитимно ли оно, и не перехожу по ссылке.", "score": 3}, {"id": 28, "question_id": 7, "sort_order": 3, "text": "Навожу курсор на ссылку, вижу почти правильный домен и всё равно перехожу, раз он «похож».", "score": 0}]}, {"id": 8, "sort_order": 8, "text": "Ситуация: Начальник в пятницу вечером пишет в мессенджере с личного номера: «Купи, пожалуйста, 5 подарочных карт по 5000 руб. для партнёров, отдам деньги в понедельник, коды пришли сюда, срочно, я на встрече и не могу говорить». Ваши действия?", "category": "Мошенничество / социальная инженерия", "explanation": "Просьба купить подарочные карты и срочно прислать коды — классическая схема gift card scam. Правильно — проверить просьбу голосовым звонком по известному номеру, прежде чем что-либо покупать.", "multi": 0, "active": 1, "options": [{"id": 29, "question_id": 8, "sort_order": 0, "text": "Быстро покупаю карты и присылаю коды — начальник просил срочно, нельзя подводить.", "score": 0}, {"id": 30, "question_id": 8, "sort_order": 1, "text": "Звоню начальнику на его обычный рабочий номер, чтобы подтвердить просьбу голосом.", "score": 3}, {"id": 31, "question_id": 8, "sort_order": 2, "text": "Отвечаю в переписке вопросом «это точно вы?» и, получив «да», покупаю карты.", "score": 0}, {"id": 32, "question_id": 8, "sort_order": 3, "text": "Игнорирую сообщение полностью, ничего не проверяя и не отвечая.", "score": 1}]}, {"id": 9, "sort_order": 9, "text": "Ситуация: На вашем экране появляется всплывающее окно: «Обнаружено 5 вирусов! Скачайте антивирус немедленно» с таймером обратного отсчёта. Ваши действия?", "category": "Scareware", "explanation": "Пугающие всплывающие окна с таймером — типичный scareware. Правильно — закрыть окно (не кликая внутри него) и проверить систему штатным корпоративным антивирусом.", "multi": 0, "active": 1, "options": [{"id": 33, "question_id": 9, "sort_order": 0, "text": "Кликаю «Скачать», чтобы успеть до истечения таймера.", "score": 0}, {"id": 34, "question_id": 9, "sort_order": 1, "text": "Закрываю окно через диспетчер задач/крестик, не кликая внутри него, и запускаю штатный антивирус или обращаюсь в IT.", "score": 3}, {"id": 35, "question_id": 9, "sort_order": 2, "text": "Звоню в номер поддержки, указанный в окне.", "score": 0}, {"id": 36, "question_id": 9, "sort_order": 3, "text": "Игнорирую окно, оставляю его открытым и продолжаю работать.", "score": 1}]}, {"id": 10, "sort_order": 10, "text": "Ситуация: Вам приходит письмо от «службы доставки» с номером посылки и просьбой доплатить 99 руб. пошлины по ссылке, иначе посылку вернут отправителю. Вы недавно действительно что-то заказывали. Ваши действия?", "category": "Фишинг / СМС", "explanation": "Небольшая сумма — приём, снижающий бдительность. Правильно — проверять статус посылки в официальном приложении/на сайте службы доставки, а не по ссылке из письма или SMS.", "multi": 0, "active": 1, "options": [{"id": 37, "question_id": 10, "sort_order": 0, "text": "Перехожу по ссылке и вношу данные карты — сумма маленькая, не страшно.", "score": 0}, {"id": 38, "question_id": 10, "sort_order": 1, "text": "Проверяю статус посылки в официальном приложении службы доставки по номеру заказа.", "score": 3}, {"id": 39, "question_id": 10, "sort_order": 2, "text": "Перехожу по ссылке, но ввожу неправильные данные карты «на всякий случай».", "score": 0}, {"id": 40, "question_id": 10, "sort_order": 3, "text": "Удаляю письмо, не проверяя вообще ничего.", "score": 1}]}, {"id": 11, "sort_order": 11, "text": "Ситуация: На собеседовании с потенциальным работодателем (по телефону) вас просят прислать скан паспорта и ИНН «для оформления пропуска на первую встречу в офисе», хотя дата встречи ещё не назначена. Ваши действия?", "category": "Утечка персональных данных", "explanation": "Паспортные данные передаются только после подтверждения реального трудоустройства/конкретного визита и по защищённому каналу. Правильно — уточнить необходимость и способ безопасной передачи, отложив это до момента реальной необходимости.", "multi": 0, "active": 1, "options": [{"id": 41, "question_id": 11, "sort_order": 0, "text": "Сразу отправляю скан паспорта на почту, указанную в переписке.", "score": 0}, {"id": 42, "question_id": 11, "sort_order": 1, "text": "Уточняю, зачем это нужно именно сейчас, и предлагаю предоставить документы очно при визите в офис.", "score": 3}, {"id": 43, "question_id": 11, "sort_order": 2, "text": "Отправляю только ИНН, а паспорт — нет, считая это компромиссом.", "score": 1}, {"id": 44, "question_id": 11, "sort_order": 3, "text": "Отказываюсь от собеседования полностью.", "score": 1}]}, {"id": 12, "sort_order": 12, "text": "Ситуация: В общем чате компании появляется сообщение от аккаунта коллеги: «Всем привет! Раздаю доступ к премиум-курсам бесплатно, перейдите по ссылке и введите корпоративный логин». Аккаунт коллеги выглядит как обычно. Ваши действия?", "category": "Компрометация", "explanation": "Внезапная нетипичная активность в аккаунте коллеги — признак компрометации. Правильно — не переходить по ссылке, предупредить коллегу и ИБ по другому каналу связи.", "multi": 0, "active": 1, "options": [{"id": 45, "question_id": 12, "sort_order": 0, "text": "Перехожу по ссылке и ввожу корпоративный логин/пароль, раз это от коллеги.", "score": 0}, {"id": 46, "question_id": 12, "sort_order": 1, "text": "Пишу коллеге лично (в звонок/другой канал) и сообщаю в ИБ, не переходя по ссылке.", "score": 3}, {"id": 47, "question_id": 12, "sort_order": 2, "text": "Игнорирую сообщение, но ничего никому не сообщаю.", "score": 1}, {"id": 48, "question_id": 12, "sort_order": 3, "text": "Отвечаю в чате «это точно ты?», но всё равно кликаю по ссылке, чтобы проверить.", "score": 0}]}, {"id": 13, "sort_order": 13, "text": "Ситуация: Вы работаете в кафе рядом с офисом и видите открытую Wi-Fi сеть «Free_CoffeeShop_WiFi» без пароля. Вам нужно быстро проверить рабочую почту. Ваши действия?", "category": "Wi-Fi / безопасность", "explanation": "Открытые публичные сети — риск перехвата трафика. Правильно — использовать корпоративный VPN или мобильный интернет (раздачу с телефона) вместо незащищённого Wi-Fi.", "multi": 0, "active": 1, "options": [{"id": 49, "question_id": 13, "sort_order": 0, "text": "Подключаюсь к открытой сети и сразу открываю почту без VPN.", "score": 0}, {"id": 50, "question_id": 13, "sort_order": 1, "text": "Использую мобильный интернет (раздачу с телефона) или подключаюсь через корпоративный VPN.", "score": 3}, {"id": 51, "question_id": 13, "sort_order": 2, "text": "Подключаюсь к сети, но открываю только сайты без пароля.", "score": 1}, {"id": 52, "question_id": 13, "sort_order": 3, "text": "Спрашиваю у бариста официальное имя сети, чтобы не попасть на поддельную точку доступа, и подключаюсь без VPN.", "score": 1}]}, {"id": 14, "sort_order": 14, "text": "Ситуация: Вы получаете письмо от «HR-отдела» с просьбой пройти опрос по ссылке и авторизоваться корпоративным логином, чтобы «получить бонус к отпуску». Домен ссылки — company-hr-portal.com (обычный корпоративный домен — company.com). Ваши действия?", "category": "Фишинг / омоглифы", "explanation": "Похожий, но иной домен — явный признак фишинга. Правильно — сверить домен с официальным и обратиться в HR напрямую по внутренним каналам.", "multi": 0, "active": 1, "options": [{"id": 53, "question_id": 14, "sort_order": 0, "text": "Перехожу по ссылке и ввожу логин, раз тема приятная (бонус).", "score": 0}, {"id": 54, "question_id": 14, "sort_order": 1, "text": "Замечаю несовпадение домена и не перехожу по ссылке, уточняю у HR напрямую.", "score": 3}, {"id": 55, "question_id": 14, "sort_order": 2, "text": "Перехожу по ссылке, но пароль не ввожу, только логин.", "score": 0}, {"id": 56, "question_id": 14, "sort_order": 3, "text": "Пересылаю ссылку коллегам, чтобы они тоже прошли опрос.", "score": 0}]}, {"id": 15, "sort_order": 15, "text": "Ситуация: Уходя на обед, вы оставляете рабочий ноутбук разблокированным на столе в открытом офисе. Насколько это соответствует правилам цифровой гигиены? Что нужно делать?", "category": "Физическая безопасность", "explanation": "Экран должен блокироваться при любом уходе с рабочего места, даже на минуту — это базовое правило (clean desk / lock screen policy).", "multi": 0, "active": 1, "options": [{"id": 57, "question_id": 15, "sort_order": 0, "text": "Это нормально, если офис «свой», без посторонних.", "score": 0}, {"id": 58, "question_id": 15, "sort_order": 1, "text": "Всегда блокирую экран (Win+L) перед тем как отойти от рабочего места, даже ненадолго.", "score": 3}, {"id": 59, "question_id": 15, "sort_order": 2, "text": "Блокирую экран, только если ухожу больше чем на 30 минут.", "score": 1}, {"id": 60, "question_id": 15, "sort_order": 3, "text": "Закрываю крышку ноутбука вместо блокировки экрана.", "score": 1}]}, {"id": 16, "sort_order": 16, "text": "Ситуация: Вам звонит «сотрудник службы безопасности банка» и убедительно просит установить приложение для «удалённой проверки» с присланной ссылки, чтобы «защитить счёт от списания». Ваши действия?", "category": "Вишинг", "explanation": "Приложения удалённого доступа (TeamViewer, AnyDesk и т.п.), устанавливаемые по просьбе «банка», — классическая схема получения полного доступа к устройству. Правильно — отказаться, положить трубку и перезвонить в банк самостоятельно.", "multi": 0, "active": 1, "options": [{"id": 61, "question_id": 16, "sort_order": 0, "text": "Устанавливаю приложение, ведь звонивший знает мои личные данные и говорит убедительно.", "score": 0}, {"id": 62, "question_id": 16, "sort_order": 1, "text": "Отказываюсь, кладу трубку и сам перезваниваю в банк по официальному номеру.", "score": 3}, {"id": 63, "question_id": 16, "sort_order": 2, "text": "Устанавливаю, но не даю управление, только смотрю.", "score": 0}, {"id": 64, "question_id": 16, "sort_order": 3, "text": "Прошу перезвонить позже и ничего не устанавливаю сейчас.", "score": 1}]}, {"id": 17, "sort_order": 17, "text": "Ситуация: В LinkedIn вам пишет «рекрутер» крупной компании с предложением о работе мечты и просит для «теста навыков» скачать и запустить файл с GitHub-репозитория, специально созданного под вас. Ваши действия?", "category": "Социальная инженерия", "explanation": "Запуск незнакомого исполняемого файла с непроверенного источника — прямой риск заражения. Правильно — выполнять тестовые задания в изолированной среде (песочница/виртуальная машина) или отказаться, если это не соответствует практике компании.", "multi": 0, "active": 1, "options": [{"id": 65, "question_id": 17, "sort_order": 0, "text": "Скачиваю и запускаю файл на рабочем компьютере — предложение слишком заманчивое.", "score": 0}, {"id": 66, "question_id": 17, "sort_order": 1, "text": "Отказываюсь запускать файл на личном/рабочем устройстве и прошу альтернативный формат тестового задания.", "score": 3}, {"id": 67, "question_id": 17, "sort_order": 2, "text": "Запускаю файл в виртуальной машине без доступа к рабочей сети.", "score": 2}, {"id": 68, "question_id": 17, "sort_order": 3, "text": "Пересылаю файл другу-программисту, чтобы он сначала проверил.", "score": 1}]}, {"id": 18, "sort_order": 18, "text": "Ситуация: Уходящий в отпуск коллега просит вас «на всякий случай» временно попользоваться его учётной записью в корпоративной системе, чтобы не блокировать рабочие процессы. Ваши действия?", "category": "Инсайдерские угрозы", "explanation": "Передача учётных данных нарушает политику ИБ и создаёт риск: любые действия под чужим логином невозможно однозначно атрибутировать. Правильно — решать вопрос через делегирование прав или временный доступ, оформленный официально.", "multi": 0, "active": 1, "options": [{"id": 69, "question_id": 18, "sort_order": 0, "text": "Соглашаюсь, ведь это временно и по-дружески, никто не узнает.", "score": 0}, {"id": 70, "question_id": 18, "sort_order": 1, "text": "Отказываюсь и предлагаю оформить официальное делегирование прав или временный доступ через IT/руководителя.", "score": 3}, {"id": 71, "question_id": 18, "sort_order": 2, "text": "Соглашаюсь, но прошу коллегу сменить пароль сразу после отпуска.", "score": 0}, {"id": 72, "question_id": 18, "sort_order": 3, "text": "Молча игнорирую просьбу, ничего не предлагая взамен.", "score": 1}]}, {"id": 19, "sort_order": 19, "text": "Ситуация: Вы регистрируетесь на новом внешнем сервисе для рабочих задач и хотите использовать пароль, привычный для входа в корпоративную почту, чтобы не забыть. Правильно ли это?", "category": "Пароли", "explanation": "Повторное использование пароля — один из главных факторов масштабных утечек: взлом одного сервиса компрометирует все остальные. Правильно — использовать уникальный пароль (менеджер паролей) для каждого сервиса.", "multi": 0, "active": 1, "options": [{"id": 73, "question_id": 19, "sort_order": 0, "text": "Да, это удобно и я не забуду пароль.", "score": 0}, {"id": 74, "question_id": 19, "sort_order": 1, "text": "Нет, использую уникальный пароль для этого сервиса, желательно через менеджер паролей.", "score": 3}, {"id": 75, "question_id": 19, "sort_order": 2, "text": "Использую тот же пароль, но добавлю в конце одну цифру.", "score": 1}, {"id": 76, "question_id": 19, "sort_order": 3, "text": "Использую тот же пароль только для «неважных» сервисов.", "score": 1}]}, {"id": 20, "sort_order": 20, "text": "Ситуация: Вы обнаружили, что случайно отправили файл с персональными данными клиентов не тому получателю по электронной почте. Ваши действия?", "category": "Утечка персональных данных", "explanation": "Инцидент нужно немедленно эскалировать в ИБ/руководителю, чтобы минимизировать ущерб и, при необходимости, уведомить пострадавших согласно регламенту. Попытка скрыть инцидент увеличивает риски для компании.", "multi": 0, "active": 1, "options": [{"id": 77, "question_id": 20, "sort_order": 0, "text": "Никому не говорю и надеюсь, что получатель просто удалит письмо.", "score": 0}, {"id": 78, "question_id": 20, "sort_order": 1, "text": "Немедленно сообщаю руководителю и в отдел ИБ о произошедшем.", "score": 3}, {"id": 79, "question_id": 20, "sort_order": 2, "text": "Пишу получателю с просьбой удалить письмо, но больше никому не сообщаю.", "score": 1}, {"id": 80, "question_id": 20, "sort_order": 3, "text": "Пытаюсь отозвать письмо средствами почтового клиента и на этом останавливаюсь.", "score": 1}]}, {"id": 21, "sort_order": 21, "text": "Ситуация: Многофакторная аутентификация (MFA/2FA) на вашей рабочей почте несколько раз подряд присылает push-запрос на подтверждение входа, хотя вы сами не пытались войти. Ваши действия?", "category": "Компрометация", "explanation": "Это признак MFA fatigue атаки — злоумышленник, зная пароль, «забрасывает» жертву push-запросами в расчёте на случайное подтверждение. Правильно — отклонить все запросы, сменить пароль и сообщить в ИБ.", "multi": 0, "active": 1, "options": [{"id": 81, "question_id": 21, "sort_order": 0, "text": "Подтверждаю один из запросов, чтобы уведомления прекратились.", "score": 0}, {"id": 82, "question_id": 21, "sort_order": 1, "text": "Отклоняю все запросы, меняю пароль от почты и сообщаю в ИБ.", "score": 3}, {"id": 83, "question_id": 21, "sort_order": 2, "text": "Игнорирую уведомления, ничего не меняя и никому не сообщая.", "score": 1}, {"id": 84, "question_id": 21, "sort_order": 3, "text": "Отключаю MFA на аккаунте, чтобы уведомления прекратились.", "score": 0}]}, {"id": 22, "sort_order": 22, "text": "Ситуация: Какие из перечисленных признаков могут указывать на то, что письмо — фишинговое? (выберите все подходящие варианты)", "category": "Фишинг", "explanation": "Все перечисленные признаки — типичные маркеры фишинга: давление срочностью, несоответствие домена, неожиданные вложения/ссылки и странная грамматика в официальном письме.", "multi": 1, "active": 1, "options": [{"id": 85, "question_id": 22, "sort_order": 0, "text": "В письме создаётся ощущение срочности и угроза негативных последствий при промедлении.", "score": 1}, {"id": 86, "question_id": 22, "sort_order": 1, "text": "Домен отправителя незначительно отличается от официального домена компании.", "score": 1}, {"id": 87, "question_id": 22, "sort_order": 2, "text": "В письме содержится неожиданное вложение или ссылка, которых вы не ждали.", "score": 1}, {"id": 88, "question_id": 22, "sort_order": 3, "text": "Письмо написано грамотно и оформлено в фирменном стиле компании.", "score": 0}]}, {"id": 23, "sort_order": 23, "text": "Ситуация: Какие действия правильно предпринять при работе с подозрительным звонком, где собеседник представляется сотрудником вашей же компании и просит данные для входа в систему? (выберите все подходящие варианты)", "category": "Вишинг", "explanation": "Верификация через независимый канал, отказ называть учётные данные по телефону и обращение в ИБ — все три действия правильны и дополняют друг друга.", "multi": 1, "active": 1, "options": [{"id": 89, "question_id": 23, "sort_order": 0, "text": "Перезвонить собеседнику по номеру, который вы нашли самостоятельно во внутреннем справочнике компании.", "score": 1}, {"id": 90, "question_id": 23, "sort_order": 1, "text": "Никогда не называть пароли и одноразовые коды по телефону, даже коллегам.", "score": 1}, {"id": 91, "question_id": 23, "sort_order": 2, "text": "Сообщить о подозрительном звонке в отдел информационной безопасности.", "score": 1}, {"id": 92, "question_id": 23, "sort_order": 3, "text": "Назвать логин, но не пароль, если собеседник представился коллегой из IT.", "score": 0}]}, {"id": 24, "sort_order": 24, "text": "Ситуация: Что из перечисленного относится к правилам безопасного использования паролей? (выберите все подходящие варианты)", "category": "Пароли", "explanation": "Уникальность пароля для каждого сервиса, использование менеджера паролей и включение MFA — три независимых, дополняющих друг друга правила цифровой гигиены.", "multi": 1, "active": 1, "options": [{"id": 93, "question_id": 24, "sort_order": 0, "text": "Использовать уникальный пароль для каждого сервиса.", "score": 1}, {"id": 94, "question_id": 24, "sort_order": 1, "text": "Хранить пароли в менеджере паролей, а не в текстовом файле или на стикере.", "score": 1}, {"id": 95, "question_id": 24, "sort_order": 2, "text": "Включать многофакторную аутентификацию (MFA) везде, где это возможно.", "score": 1}, {"id": 96, "question_id": 24, "sort_order": 3, "text": "Периодически сообщать пароль от рабочей почты доверенному коллеге «на всякий случай».", "score": 0}]}, {"id": 25, "sort_order": 25, "text": "Ситуация: Какие меры физической безопасности офиса помогают противостоять социальной инженерии? (выберите все подходящие варианты)", "category": "Физическая безопасность", "explanation": "Все три меры снижают риск tailgating и несанкционированного доступа: контроль пропусков на входе, привычка блокировать экран и вежливое сопровождение незнакомых посетителей к ресепшену.", "multi": 1, "active": 1, "options": [{"id": 97, "question_id": 25, "sort_order": 0, "text": "Не пропускать в здание людей «на доверии», без проверки пропуска, даже если они выглядят убедительно.", "score": 1}, {"id": 98, "question_id": 25, "sort_order": 1, "text": "Блокировать экран компьютера при каждом уходе с рабочего места.", "score": 1}, {"id": 99, "question_id": 25, "sort_order": 2, "text": "Провожать незнакомых посетителей без пропуска к ресепшену/охране, а не оставлять их одних в офисе.", "score": 1}, {"id": 100, "question_id": 25, "sort_order": 3, "text": "Придерживать дверь для любого человека с коробкой в руках, чтобы не показаться невежливым.", "score": 0}]}];
+
+const LEVELS = [
+  [90,"Эксперт","Отличное понимание методов социальной инженерии. Продолжайте держать руку на пульсе — атаки постоянно эволюционируют."],
+  [70,"Продвинутый","Хорошее понимание рисков, но есть отдельные пробелы. Обратите внимание на разбор ошибок ниже."],
+  [50,"Базовый","Базовые принципы знакомы, но материал нужно закрепить — риск попасться на реальную атаку заметный."],
+  [0,"Требует внимания","Высокий риск стать жертвой атаки. Пройдите разбор ниже внимательно — именно эти ошибки используют мошенники."]
+];
+/* ============================================================ */
+
+function levelFor(p){ for(const l of LEVELS){ if(p>=l[0]) return l; } return LEVELS[LEVELS.length-1]; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function rnd(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function qParam(k){ try{return new URLSearchParams(location.search).get(k)||"";}catch(e){return "";} }
+
+function maxScore(q){
+  const pos=q.options.filter(o=>o.score>0);
+  if(q.multi) return pos.reduce((s,o)=>s+o.score,0);
+  return q.options.reduce((m,o)=>Math.max(m,o.score),0);
+}
+// Исправленный подсчёт: при множественном выборе за каждый лишний
+// (неверный) вариант снимается балл, поэтому «отметить всё» больше
+// не даёт максимум. Итог по вопросу не опускается ниже нуля.
+function scoreQuestion(q, chosen){
+  const by={}; q.options.forEach(o=>by[o.id]=o);
+  let s=0;
+  if(q.multi){
+    chosen.forEach(id=>{ const o=by[id]; if(!o)return; s += o.score>0 ? o.score : -1; });
+  }else{
+    chosen.forEach(id=>{ const o=by[id]; if(o) s+=o.score; });
+  }
+  return Math.max(0, s);
+}
+
+const state={ participant:"", token:qParam("id"), questions:[], answers:{}, idx:0, results:null };
+const app=document.getElementById('app');
+
+/* ---------- Старт ---------- */
+function showStart(){
+  state.questions=[]; state.answers={}; state.idx=0; state.results=null;
+  const n=Math.min(CONFIG.QUESTIONS_PER_TEST, QUESTIONS.filter(q=>q.active).length);
+  app.innerHTML=`
+    <span class="tag">Обучение · цифровая безопасность</span>
+    <h1>Социальный пентест</h1>
+    <p>Этот тест проверяет вашу устойчивость к приёмам социальной инженерии:
+    фишингу, вишингу, физическим и цифровым уловкам мошенников. Будет несколько
+    ситуаций из реальной практики — выберите наиболее правильное действие.</p>
+    <p class="muted">Вопросов в этом прохождении: <b>${n}</b>. Тест анонимно помогает
+    понять, где стоит быть внимательнее. Подсказки с правильными действиями вы
+    увидите сразу после прохождения.</p>
+    <div style="margin:22px 0 10px">
+      <label for="pid"><b>Ваше имя или идентификатор</b></label><br>
+      <input type="text" id="pid" placeholder="Например: Иванов И. / отдел бухгалтерии"
+             value="${esc(state.token)}" autocomplete="off">
+    </div>
+    <div class="row" style="margin-top:18px">
+      <button class="btn" id="startBtn">Начать тест →</button>
+    </div>
+    <p class="hint">Отвечать можно мышью/касанием или клавишами 1–9; Enter — далее.</p>`;
+  const pid=document.getElementById('pid'); pid.focus();
+  const go=()=>{ const v=pid.value.trim(); if(!v){pid.focus();pid.style.borderColor='var(--err)';return;} state.participant=v; startQuiz(); };
+  document.getElementById('startBtn').onclick=go;
+  pid.onkeydown=e=>{ if(e.key==='Enter') go(); };
+}
+
+function startQuiz(){
+  let qs=QUESTIONS.filter(q=>q.active).map(q=>({...q,options:q.options.map(o=>({...o}))}));
+  if(CONFIG.SHUFFLE){ rnd(qs); qs.forEach(q=>rnd(q.options)); }
+  qs=qs.slice(0, CONFIG.QUESTIONS_PER_TEST);
+  state.questions=qs;
+  state.answers={}; qs.forEach(q=>state.answers[q.id]=new Set());
+  state.idx=0; showQuestion();
+}
+
+/* ---------- Вопрос ---------- */
+function showQuestion(){
+  const q=state.questions[state.idx], total=state.questions.length, num=state.idx+1;
+  const sel=state.answers[q.id];
+  const type=q.multi?'checkbox':'radio';
+  const hint=q.multi
+    ? `Выберите один или несколько вариантов (клавиши 1–${q.options.length}):`
+    : `Выберите один вариант (клавиши 1–${q.options.length}):`;
+  app.innerHTML=`
+    <div class="row progress-top muted">
+      <span>Вопрос ${num} из ${total}</span>
+      <span class="pill right">${esc(q.category)}</span>
+    </div>
+    <div class="bar"><span style="width:${Math.round(100*num/total)}%"></span></div>
+    <p class="q-text">${esc(q.text)}</p>
+    <p class="muted" style="font-size:.92rem">${hint}</p>
+    <div id="opts">${q.options.map((o,i)=>`
+      <label class="opt${sel.has(o.id)?' sel':''}" data-id="${o.id}">
+        <input type="${type}" name="opt" value="${o.id}" ${sel.has(o.id)?'checked':''}>
+        <span><span class="num">${i+1}.</span> ${esc(o.text)}</span>
+      </label>`).join('')}</div>
+    <div class="row" style="margin-top:20px">
+      <button class="btn right" id="nextBtn">${num<total?'Далее →':'Завершить тест'}</button>
+    </div>
+    <p class="hint">Вернуться к предыдущему вопросу нельзя.</p>`;
+
+  const opts=[...app.querySelectorAll('.opt')];
+  function sync(){
+    opts.forEach(l=>{ const inp=l.querySelector('input'); l.classList.toggle('sel',inp.checked); });
+    const s=new Set(); app.querySelectorAll('input[name=opt]:checked').forEach(i=>s.add(+i.value));
+    state.answers[q.id]=s;
+  }
+  opts.forEach(l=>l.querySelector('input').addEventListener('change',sync));
+  document.getElementById('nextBtn').onclick=next;
+
+  document.onkeydown=e=>{
+    if(e.key==='Enter'){ next(); return; }
+    const n=parseInt(e.key,10);
+    if(n>=1 && n<=q.options.length){
+      const inp=opts[n-1].querySelector('input');
+      if(q.multi) inp.checked=!inp.checked; else inp.checked=true;
+      sync();
+    }
+  };
+  function next(){
+    if(state.answers[q.id].size===0){
+      if(!confirm('Вы не выбрали вариант. Пропустить вопрос (0 баллов)?')) return;
+    }
+    if(state.idx<total-1){ state.idx++; showQuestion(); }
+    else finish();
+  }
+}
+
+/* ---------- Итоги ---------- */
+function finish(){
+  document.onkeydown=null;
+  let tot=0,max=0; const byCat={}, details=[];
+  for(const q of state.questions){
+    const chosen=[...state.answers[q.id]];
+    const sc=scoreQuestion(q,chosen), mx=maxScore(q);
+    tot+=sc; max+=mx;
+    (byCat[q.category]=byCat[q.category]||[0,0]); byCat[q.category][0]+=sc; byCat[q.category][1]+=mx;
+    details.push({q,chosen,score:sc,max:mx});
+  }
+  const pct=max?Math.round(100*tot/max):0;
+  const [,level,advice]=levelFor(pct);
+  state.results={participant:state.participant,token:state.token,total:tot,max,pct,level,byCat,details,ts:new Date().toISOString()};
+  showResults();
+  sendResults();
+}
+
+function showResults(){
+  const r=state.results;
+  const cats=Object.entries(r.byCat).sort((a,b)=>a[0].localeCompare(b[0],'ru'));
+  app.innerHTML=`
+    <span class="tag">Результат</span>
+    <h1>Результаты теста</h1>
+    <div class="score-big">${r.total} / ${r.max}</div>
+    <div class="muted">это ${r.pct}% правильных действий</div>
+    <div class="level" style="color:var(--secondary-dark)">Уровень: ${esc(r.level)}</div>
+    <p style="margin-top:10px">${esc(levelFor(r.pct)[2])}</p>
+    <h2 style="margin-top:26px">Разбор по категориям</h2>
+    ${cats.map(([c,[s,m]])=>{const p=m?Math.round(100*s/m):0;return `
+      <div class="cat-row"><span class="name">${esc(c)}</span>
+      <span class="cbar"><span style="width:${p}%"></span></span>
+      <span class="val">${s}/${m} · ${p}%</span></div>`;}).join('')}
+    <div class="row" style="margin-top:24px">
+      <button class="btn" id="reviewBtn">Разбор ответов с пояснениями</button>
+      <button class="btn ghost" id="againBtn">Пройти заново</button>
+    </div>
+    <div id="sendnote" class="sendnote muted">Отправляю результат…</div>`;
+  document.getElementById('reviewBtn').onclick=showReview;
+  document.getElementById('againBtn').onclick=showStart;
+}
+
+function showReview(){
+  const r=state.results;
+  app.innerHTML=`
+    <div class="row"><h1>Разбор ответов</h1>
+      <button class="btn ghost right" id="backBtn">← К результатам</button></div>
+    <p class="muted">Зелёным отмечены правильные действия, красным — ваши неверные выборы.</p>
+    ${r.details.map((d,i)=>{
+      const q=d.q, top=Math.max(...q.options.map(o=>o.score));
+      const ok=d.score>=d.max;
+      return `<div class="review-q">
+        <div class="status" style="color:${ok?'var(--ok)':'var(--err)'}">
+          ${ok?'✔':'✘'} Вопрос ${i+1} — ${esc(q.category)} (${d.score}/${d.max})</div>
+        <p class="q-text" style="font-size:1rem">${esc(q.text)}</p>
+        ${q.options.map(o=>{
+          const chosen=d.chosen.includes(o.id);
+          const correct=o.score===top && top>0;
+          let cls = correct?'o-correct':(chosen?'o-wrong':'');
+          const mark = chosen?'☑':'☐';
+          return `<div class="o-line ${cls}"><span>${mark}</span><span>${esc(o.text)}
+            <span class="muted">(${o.score} б.)</span></span></div>`;
+        }).join('')}
+        <div class="expl"><b>Пояснение:</b> ${esc(q.explanation||'—')}</div>
+      </div>`;
+    }).join('')}
+    <button class="btn ghost" id="backBtn2" style="margin-top:10px">← К результатам</button>`;
+  document.getElementById('backBtn').onclick=showResults;
+  document.getElementById('backBtn2').onclick=showResults;
+  window.scrollTo(0,0);
+}
+
+/* ---------- Отправка результата (бесплатно, без сервера) ---------- */
+function sendResults(){
+  const note=()=>document.getElementById('sendnote');
+  const r=state.results;
+  const payload={
+    participant:r.participant, token:r.token,
+    total:r.total, max:r.max, percent:r.pct, level:r.level,
+    timestamp:r.ts,
+    categories:Object.fromEntries(Object.entries(r.byCat).map(([c,[s,m]])=>[c,`${s}/${m}`])),
+    answers:r.details.map(d=>({
+      category:d.q.category,
+      question:d.q.text,
+      chosen:d.q.options.filter(o=>d.chosen.includes(o.id)).map(o=>o.text),
+      score:d.score, max:d.max
+    })),
+    ua:navigator.userAgent
+  };
+  if(!CONFIG.RESULTS_ENDPOINT || CONFIG.RESULTS_ENDPOINT.indexOf('__')===0){
+    showManual(payload); return;
+  }
+  // text/plain -> простой запрос без CORS-preflight, Apps Script это принимает
+  fetch(CONFIG.RESULTS_ENDPOINT,{method:'POST',mode:'no-cors',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload)})
+    .then(()=>{ const n=note(); if(n){n.className='sendnote sendok';
+      n.textContent='✔ Результат отправлен. Спасибо за прохождение!';}})
+    .catch(()=>showManual(payload));
+}
+function showManual(payload){
+  const n=document.getElementById('sendnote'); if(!n)return;
+  const code=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  n.className='sendnote';
+  n.innerHTML=`Автоматическая отправка не настроена. Скопируйте код ниже и
+    отправьте организатору теста:<br>
+    <textarea style="width:100%;height:70px;margin-top:8px" readonly
+      onclick="this.select()">${esc(code)}</textarea>`;
+}
+
+showStart();
+</script>
+</body>
+</html>
